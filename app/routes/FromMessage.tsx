@@ -20,50 +20,55 @@ export default function MyFormPage() {
         .map((item: string) => `${item}@s.whatsapp.net`);
 
       const scheduledAt = dayjs(dateTime).locale("de").format();
-      console.log(scheduledAt);
 
-      let msgs: { msg: any }[] = [];
-      console.log(file);
+      let msgs: { msg: any }[] = [
+        {
+          msg: {
+            conversation: description,
+          },
+        },
+      ];
+      if (file) {
+        const { ok, data } = await upload(file[0].originFileObj);
 
-      const { ok, data } = await upload(file[0].originFileObj);
-
-      if (ok) {
-        switch (msgType) {
-          case "media":
-            msgs = [
-              {
-                msg: {
-                  imageMessage: {
-                    url: data.url,
-                    mimetype: file[0].type,
-                    caption: description,
+        if (ok) {
+          switch (msgType) {
+            case "media":
+              msgs = [
+                {
+                  msg: {
+                    imageMessage: {
+                      url: data.url,
+                      mimetype: file[0].type,
+                      caption: description,
+                    },
                   },
                 },
-              },
-            ];
-            break;
-          case "document":
-            msgs = [
-              {
-                msg: {
-                  document: {
-                    url: data.url,
-                    mimetype: file[0].type,
-                    fileName: file[0].name,
+              ];
+              break;
+            case "document":
+              msgs = [
+                {
+                  msg: {
+                    document: {
+                      url: data.url,
+                      mimetype: file[0].type,
+                      fileName: file[0].name,
+                    },
                   },
                 },
-              },
-            ];
-            break;
-          default:
-            msgs = [
-              {
-                msg: {
-                  conversation: description,
+              ];
+              break;
+            default:
+              msgs = [
+                {
+                  msg: {
+                    conversation: description,
+                  },
                 },
-              },
-            ];
-            break;
+              ];
+              break;
+          }
         }
       }
 
@@ -118,11 +123,11 @@ export default function MyFormPage() {
         >
           <Radio.Group
             onChange={(e) => setMsgType(e.target.value)}
-            defaultValue={msgType}
+            // defaultValue={msgType || "text"}
           >
             <Radio value="text">Text</Radio>
             <Radio value="media">Media</Radio>
-            <Radio value="document">Document</Radio>
+            {/* <Radio value="document">Document</Radio> */}
           </Radio.Group>
         </Form.Item>
 
