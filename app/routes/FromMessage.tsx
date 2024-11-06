@@ -1,14 +1,94 @@
 // app/routes/my-form-page.jsx
 import { useState } from "react";
-import { Form, Input, DatePicker, Upload, Button } from "antd";
+import { Form, Input, DatePicker, Upload, Button, Radio, message } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
+import { processMessageQueue } from "~/services/processMsgQueue";
 import { ActionFunction, json } from "@remix-run/node";
+import { upload } from "~/services/upload";
+import dayjs from "dayjs";
+dayjs.locale("dayjs/locale/id");
 
 export default function MyFormPage() {
   const [form] = Form.useForm();
+  const [msgType, setMsgType] = useState("text");
 
-  const handleFinish = (values: Record<string, any>) => {
-    console.log("Form Values:", values);
+  const handleFinish = async (values: Record<string, any>) => {
+    try {
+      const { phone, description, dateTime, file } = values;
+      const jids = phone
+        .split(",")
+        .map((item: string) => `${item}@s.whatsapp.net`);
+
+      const scheduledAt = dayjs(dateTime).locale("de").format();
+      console.log(scheduledAt);
+
+      let msgs: { msg: any }[] = [];
+      console.log(file);
+
+      const { ok, data } = await upload(file[0].originFileObj);
+
+      if (ok) {
+        switch (msgType) {
+          case "media":
+            msgs = [
+              {
+                msg: {
+                  imageMessage: {
+                    url: data.url,
+                    mimetype: file[0].type,
+                    caption: description,
+                  },
+                },
+              },
+            ];
+            break;
+          case "document":
+            msgs = [
+              {
+                msg: {
+                  document: {
+                    url: data.url,
+                    mimetype: file[0].type,
+                    fileName: file[0].name,
+                  },
+                },
+              },
+            ];
+            break;
+          default:
+            msgs = [
+              {
+                msg: {
+                  conversation: description,
+                },
+              },
+            ];
+            break;
+        }
+      }
+
+      const userId = "daisi-dev01";
+
+      const payload = {
+        cluster: "BINDUNI",
+        sender: "LARA1",
+        jids,
+        msgs,
+        userId,
+        scheduledAt,
+      };
+
+      const { data: res } = await processMessageQueue(payload);
+      if (res.ok) {
+        message.success(res.msg);
+        form.resetFields();
+        setMsgType("text");
+      } else {
+        message.error("Message Failed");
+      }
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -20,6 +100,32 @@ export default function MyFormPage() {
         onFinish={handleFinish}
         style={{ maxWidth: "600px", margin: "0 auto" }}
       >
+        <Form.Item
+          label="Phone"
+          name={"phone"}
+          rules={[{ required: true, message: "Please input Phone Numbers!" }]}
+        >
+          <Input
+            // addonBefore="+62"
+            placeholder="62984958900,628738949085"
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="Message Type"
+          name="messageType"
+          rules={[{ required: true, message: "Please input Type Message!" }]}
+        >
+          <Radio.Group
+            onChange={(e) => setMsgType(e.target.value)}
+            defaultValue={msgType}
+          >
+            <Radio value="text">Text</Radio>
+            <Radio value="media">Media</Radio>
+            <Radio value="document">Document</Radio>
+          </Radio.Group>
+        </Form.Item>
+
         {/* TextArea Field */}
         <Form.Item
           label="Description"
@@ -45,16 +151,21 @@ export default function MyFormPage() {
         </Form.Item>
 
         {/* File Upload Field */}
-        <Form.Item
-          label="Upload File"
-          name="file"
-          valuePropName="fileList"
-          getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)}
-        >
-          <Upload name="file" listType="text" beforeUpload={() => false}>
-            <Button icon={<UploadOutlined />}>Click to Upload</Button>
-          </Upload>
-        </Form.Item>
+        {msgType !== "text" ? (
+          <Form.Item
+            label="Upload File"
+            name="file"
+            valuePropName="fileList"
+            getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)}
+            rules={[{ required: true, message: "Please Upload your File!" }]}
+          >
+            <Upload name="file" listType="text" beforeUpload={() => false}>
+              <Button icon={<UploadOutlined />}>Click to Upload</Button>
+            </Upload>
+          </Form.Item>
+        ) : (
+          ""
+        )}
 
         {/* Submit Button */}
         <Form.Item>
